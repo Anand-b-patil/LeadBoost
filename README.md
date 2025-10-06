@@ -2,15 +2,6 @@
 
 Welcome to **LeadBoost**!
 
-## Design & style notes
-
-- Consistent spacing: form fields and cards use a 16px vertical rhythm and 12–16px internal padding for compact, readable layout.
-- Iconography: simple line icons (from Lucide) provide quick affordances for actions (upload, score, generate). Color accents use a purple gradient to highlight primary actions.
-- Responsive behavior: layout stacks on small screens, and primary buttons expand to full width for easier tap targets on mobile.
-- Accessibility: buttons include aria labels and descriptions; onboarding dialog traps focus and can be dismissed with Escape.
-
-Design rationale: we prioritize clarity and quick action — users should be able to add several leads, run scoring, and act on high-priority leads in under a minute. The UI exposes both deterministic base scores and AI insights to make scoring auditable and explainable for reviewers.
-
 ## 🌟 What is LeadBoost?
 
 LeadBoost is a web application that helps you collect, organize, and contact potential business customers (called **leads**). It uses advanced AI (Google Gemini) to help you decide which leads are most valuable and to write personalized messages for you.
@@ -137,8 +128,7 @@ Each lead usually has information like:
 
 If you’re ever unsure what a button does, just hover over it or try it out—LeadBoost is designed to be simple and helpful!
 
-
-  ## Running the code
+## Running the code
   
   ## Lead qualification criteria
 
