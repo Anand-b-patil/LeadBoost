@@ -3,10 +3,12 @@ import { generateFromGemini } from './api';
 export interface Lead {
   id: string;
   name: string;
+  title?: string;
   email: string;
   linkedin: string;
   company: string;
   revenue: string;
+  recent_signals?: string;
   industry: string;
   priorityScore?: number;
   aiInsight?: string;
@@ -36,7 +38,9 @@ export function computeBaseScoreDetailed(lead: Lead) {
   let contact = 0;
   let recency = 0;
 
-  const title = (lead.name || "").toLowerCase();
+  // Prefer explicit title if available. The previous implementation used `lead.name`
+  // which prevented role detection when title was provided separately.
+  const title = ((lead as any).title || lead.name || "").toLowerCase();
   if (/founder|ceo|cto|cfo|co-founder/.test(title)) role = 30;
   else if (/vp|vice president|head|director/.test(title)) role = 20;
   else if (/manager|lead/.test(title)) role = 10;
@@ -50,7 +54,10 @@ export function computeBaseScoreDetailed(lead: Lead) {
     company = 10;
   }
 
-  const signals = (lead.aiInsight || "").toLowerCase();
+  // For intent/recency, prefer recently provided signals (form input) if present,
+  // otherwise fall back to any AI insight text. This keeps the base score
+  // deterministic from input data (not from model output) when possible.
+  const signals = ((lead as any).recent_signals || (lead as any).recentSignals || lead.aiInsight || "").toLowerCase();
   if (/fund|raised|series|hiring|launch|acquired/.test(signals)) intent = 25;
   else if (/hiring|growth|expanding|pilot/.test(signals)) intent = 10;
 
