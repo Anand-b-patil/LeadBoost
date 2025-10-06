@@ -7,6 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Loader2, CheckCircle, Upload, FileText, Building2, TrendingUp } from "lucide-react";
 import { Lead, ScoredLead, scoreMultipleLeads, saveLeadsToStorage } from "../../lib/leadScoring";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "../ui/dialog";
 
 export function ChatbotLeadInput() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -25,6 +35,7 @@ export function ChatbotLeadInput() {
   const [isScoring, setIsScoring] = useState(false);
   const [scoringComplete, setScoringComplete] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const steps = [
@@ -58,6 +69,15 @@ export function ChatbotLeadInput() {
         revenue: "",
         industry: ""
       });
+    }
+  };
+
+  // Keyboard: allow Enter to trigger the primary action when focused
+  const handleKeyPressOnPrimary = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const target = e.target as HTMLButtonElement;
+      target.click();
     }
   };
 
@@ -200,6 +220,17 @@ export function ChatbotLeadInput() {
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
   };
 
+  // Check onboarding flag on mount
+  // (prefer effect but lightweight check on render is fine for this component)
+  if (typeof window !== 'undefined' && !showOnboarding) {
+    try {
+      const seen = localStorage.getItem('leadboost_seen_onboarding');
+      if (!seen) setShowOnboarding(true);
+    } catch (e) {
+      // ignore localStorage errors
+    }
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       <Card className="shadow-lg border border-gray-100">
@@ -249,27 +280,36 @@ export function ChatbotLeadInput() {
           </div>
 
           <div className="flex space-x-4">
-            {currentStep < steps.length - 1 ? (
+              {currentStep < steps.length - 1 ? (
               <Button 
                 onClick={handleNext}
+                onKeyDown={handleKeyPressOnPrimary}
+                aria-label="Next lead field"
                 className="flex-1 h-12 bg-[#6C63FF] hover:bg-[#5B54E6] text-white"
+                title="Move to the next input field for this lead"
               >
                 Next Lead →
               </Button>
             ) : (
               <Button 
                 onClick={handleNext}
+                onKeyDown={handleKeyPressOnPrimary}
+                aria-label="Add lead and continue"
                 className="flex-1 h-12 bg-[#4F46E5] hover:bg-[#4338CA] text-white"
+                title="Save this lead and continue adding more"
               >
                 Add Lead & Continue
               </Button>
             )}
             
-            {collectedLeads.length > 0 && (
+              {collectedLeads.length > 0 && (
               <Button 
                 onClick={handleScoreLeads}
+                onKeyDown={handleKeyPressOnPrimary}
                 disabled={isScoring || scoringComplete}
                 className="h-12 bg-[#4F46E5] hover:bg-[#4338CA] text-white px-8 disabled:opacity-50"
+                aria-describedby="finish-score-desc"
+                title="Finish adding leads and run the AI scoring. This will send leads to the scoring engine and display results here."
               >
                 {isScoring ? (
                   <>
@@ -286,6 +326,7 @@ export function ChatbotLeadInput() {
                 )}
               </Button>
             )}
+            <div id="finish-score-desc" className="sr-only">Click to send collected leads to the scoring engine and compute AI and base scores. Only the leads shown will be scored.</div>
           </div>
 
           {/* Upload CSV Option */}
@@ -304,6 +345,8 @@ export function ChatbotLeadInput() {
                 className="w-full h-12"
                 onClick={handleUploadClick}
                 disabled={isUploading}
+                title="Upload CSV of leads. Expected columns are Name, Email, Company, Revenue, Industry, LinkedIn"
+                aria-label="Upload CSV of leads"
               >
                 {isUploading ? (
                   <>
@@ -333,6 +376,34 @@ export function ChatbotLeadInput() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Onboarding dialog shown to first-time users */}
+      <Dialog open={showOnboarding} onOpenChange={(open) => {
+        setShowOnboarding(open);
+        if (!open) {
+          try { localStorage.setItem('leadboost_seen_onboarding', '1'); } catch (e) {}
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Welcome to LeadBoost</DialogTitle>
+            <DialogDescription>
+              Quick tour: add leads (or upload a CSV), then click "Finish & Score" to compute both a deterministic base score and an AI score with rationale. Use the results to prioritize outreach.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 text-sm">
+            - Add leads one-by-one using the form. Press <strong>Enter</strong> to advance fields.
+            <br />- When you're ready, click <strong>Finish & Score</strong> to run scoring.
+            <br />- Click a scored lead to view deterministic breakdown and AI insight.
+          </div>
+          <DialogFooter>
+            <Button onClick={() => { setShowOnboarding(false); try { localStorage.setItem('leadboost_seen_onboarding', '1'); } catch (e) {} }}>Got it</Button>
+            <DialogClose>
+              <Button variant="ghost">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Scored Leads Display */}
       {scoringComplete && scoredLeads.length > 0 && (
