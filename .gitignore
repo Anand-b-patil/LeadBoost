@@ -1,4 +1,5 @@
-.node_modules
-.PROJECT_OVERVIEW.md
+node_modules
+PROJECT_OVERVIEW.md
 .venv
 .env
+vite.config.js
