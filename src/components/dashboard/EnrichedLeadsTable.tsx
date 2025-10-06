@@ -10,13 +10,13 @@ import { ScoredLead, getLeadsFromStorage } from "../../lib/leadScoring";
 import { generateFromGemini } from "../../lib/api";
 
 export function EnrichedLeadsTable() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [leads, setLeads] = useState<ScoredLead[]>([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalTitle, setModalTitle] = useState("");
-  const [modalContent, setModalContent] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [modalTitle, setModalTitle] = useState<string>("");
+  const [modalContent, setModalContent] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     loadLeads();
@@ -62,7 +62,7 @@ export function EnrichedLeadsTable() {
       lead.aiInsight?.replace(/\n/g, ' ')
     ]);
     const csvContent = [headers, ...rows]
-      .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+      .map((row: any[]) => row.map((field: any) => `"${String(field).replace(/"/g, '""')}"`).join(','))
       .join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -76,7 +76,7 @@ export function EnrichedLeadsTable() {
   };
 
   // Gemini message generation
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const [detailsLead, setDetailsLead] = useState<ScoredLead | null>(null);
 
   const handleGenerateMessage = async (lead: ScoredLead, type: 'email' | 'linkedin') => {
@@ -99,7 +99,9 @@ export function EnrichedLeadsTable() {
     setLoading(false);
   };
 
-  const openDetails = (lead: ScoredLead) => {
+  const openDetails = (lead: ScoredLead, e?: React.MouseEvent) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    console.log('openDetails called for', lead?.id || lead?.email || lead?.name);
     setDetailsLead(lead);
     setDetailsOpen(true);
   };
@@ -195,7 +197,7 @@ export function EnrichedLeadsTable() {
                   </TableRow>
                 ) : (
                   filteredLeads.map((lead) => (
-                    <TableRow key={lead.id}>
+                    <TableRow key={lead.id} onDoubleClick={() => openDetails(lead)}>
                       <TableCell>{lead.name}</TableCell>
                       <TableCell>{lead.company}</TableCell>
                       <TableCell>
@@ -244,9 +246,9 @@ export function EnrichedLeadsTable() {
                           <Button size="sm" variant="outline" onClick={() => handleGenerateMessage(lead, 'linkedin')}>
                             Generate LinkedIn
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => openDetails(lead)}>
+                          <button className="text-sm text-[#4F46E5] hover:underline" onClick={(e) => openDetails(lead, e)}>
                             Details
-                          </Button>
+                          </button>
                         </div>
                       </TableCell>
                     </TableRow>

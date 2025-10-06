@@ -2,8 +2,6 @@
 
 Welcome to **LeadBoost**!
 
-![LeadBoost UI screenshot](./assets/screenshot-ui.svg)
-
 ## Design & style notes
 
 - Consistent spacing: form fields and cards use a 16px vertical rhythm and 12–16px internal padding for compact, readable layout.
