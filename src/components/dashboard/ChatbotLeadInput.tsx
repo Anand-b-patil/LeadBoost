@@ -108,6 +108,8 @@ export function ChatbotLeadInput() {
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
     const leads: Lead[] = [];
 
+    const seen = new Set<string>();
+    let skipped = 0;
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
       if (values.length !== headers.length) continue;
@@ -159,8 +161,20 @@ export function ChatbotLeadInput() {
 
       // Only add leads with at least name and company
       if (lead.name && lead.company) {
+        // dedupe key: prefer email, then linkedin, then normalized name+company
+        const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase();
+        const key = lead.email ? `email:${lead.email.toLowerCase()}` : (lead.linkedin ? `li:${lead.linkedin.toLowerCase()}` : `nc:${norm(lead.name)}:${norm(lead.company)}`);
+        if (seen.has(key)) {
+          skipped++;
+          continue;
+        }
+        seen.add(key);
         leads.push(lead);
       }
+    }
+
+    if (skipped > 0) {
+      console.info(`CSV import skipped ${skipped} duplicate lead(s)`);
     }
 
     return leads;
@@ -254,7 +268,7 @@ export function ChatbotLeadInput() {
           <div>
             <label className="block mb-2 text-sm">{steps[currentStep].label}</label>
             {steps[currentStep].field === "industry" ? (
-              <Select onValueChange={(value) => handleInputChange(steps[currentStep].field, value)}>
+              <Select onValueChange={(value: string) => handleInputChange(steps[currentStep].field, value)}>
                 <SelectTrigger className="h-12">
                   <SelectValue placeholder="Select industry" />
                 </SelectTrigger>
@@ -378,7 +392,7 @@ export function ChatbotLeadInput() {
       </Card>
 
       {/* Onboarding dialog shown to first-time users */}
-      <Dialog open={showOnboarding} onOpenChange={(open) => {
+      <Dialog open={showOnboarding} onOpenChange={(open: boolean) => {
         setShowOnboarding(open);
         if (!open) {
           try { localStorage.setItem('leadboost_seen_onboarding', '1'); } catch (e) {}

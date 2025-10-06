@@ -1,15 +1,21 @@
 import os
+import logging
+import time
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-import random
 import json
 import concurrent.futures
+import requests
 
 
 load_dotenv()
 
 GEMINI_TIMEOUT = float(os.getenv("GEMINI_TIMEOUT", "8.0"))
+
+# Configure logging
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logger = logging.getLogger("leadboost")
 
 try:
     import google.generativeai as genai
@@ -132,6 +138,28 @@ def enrich() -> tuple:
 
         return max(0, min(100, int(score)))
 
+    def company_lookup(name: str | None, domain: str | None) -> dict:
+        """
+        Optional lightweight enrichment via Clearbit Company API if CLEARBIT_API_KEY is provided.
+        Falls back to returning an empty dict when no API key is present.
+        """
+        api_key = os.getenv("CLEARBIT_API_KEY")
+        if not api_key or not name:
+            return {}
+
+        try:
+            headers = {"Authorization": f"Bearer {api_key}"}
+            # Clearbit has company endpoints but may require a paid plan; this is best-effort.
+            params = {"name": name}
+            resp = requests.get("https://company.clearbit.com/v2/companies/find", params=params, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                return resp.json()
+            logger.info(f"Clearbit lookup returned {resp.status_code} for {name}")
+        except Exception as e:
+            logger.exception("Clearbit lookup failed")
+
+        return {}
+
     if genai is not None and os.getenv("GEMINI_API_KEY"):
         try:
             genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -139,6 +167,7 @@ def enrich() -> tuple:
             prompt = f"Analyze this lead and return JSON with priorityScore (0-100), aiInsight, isHotLead (true/false), industry and revenue. Lead:\nName: {name}\nCompany: {company}\nLinkedIn: {linkedin}\nEmail: {email}\n"
 
             model = genai.GenerativeModel("gemini-2.0-flash", generation_config={"temperature": 0.3})
+            start_time = time.time()
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(model.generate_content, prompt)
                 try:
@@ -146,10 +175,15 @@ def enrich() -> tuple:
                     text = response.text if hasattr(response, "text") else str(response)
                 except concurrent.futures.TimeoutError:
                     future.cancel()
-                    print(f"Gemini enrichment timed out after {GEMINI_TIMEOUT}s - falling back to mock enrichment")
-                    text = "{}" 
+                    logger.warning(f"Gemini enrichment timed out after {GEMINI_TIMEOUT}s - falling back to deterministic enrichment")
+                    text = "{}"
+                except Exception as e:
+                    future.cancel()
+                    logger.exception("Gemini call failed")
+                    text = "{}"
+            elapsed = time.time() - start_time
+            logger.info(f"Gemini call time: {elapsed:.2f}s for lead={name} company={company}")
 
-            import json
             scoring = _safe_parse_json_text(text)
 
             raw_ai_score = scoring.get("priorityScore")
@@ -158,6 +192,7 @@ def enrich() -> tuple:
             except Exception:
                 ai_score = None
 
+            # Always compute base score deterministically
             base_score = compute_base_score({
                 "title": title,
                 "industry": industry,
@@ -171,10 +206,13 @@ def enrich() -> tuple:
             final_score = ai_score if (ai_score is not None) else base_score
             final_score = max(0, min(100, int(final_score)))
 
-            industry_val = scoring.get("industry") or industry or random.choice(["Technology", "Healthcare", "Finance", "E-commerce", "Education"])
-            revenue_val = scoring.get("revenue") or revenue or f"{random.randint(50, 300)}Cr"
+            # use model-provided industry/revenue if present, otherwise deterministic default
+            industry_val = scoring.get("industry") or industry or "Unknown"
+            revenue_val = scoring.get("revenue") or revenue or "Unknown"
+
             is_hot = bool(scoring.get("isHotLead", False)) or final_score > 85
             ai_insight = scoring.get("aiInsight") or "No insight available"
+            confidence = scoring.get("confidence") if isinstance(scoring.get("confidence"), (int, float)) else None
 
             enriched_lead = {
                 "name": name,
@@ -190,16 +228,30 @@ def enrich() -> tuple:
                 "status": "🔥 Hot Lead" if final_score > 85 else ("High" if final_score > 75 else "Medium"),
                 "ai_insight": ai_insight,
                 "is_hot_lead": is_hot,
+                "ai_call_ms": int(elapsed * 1000),
+                "ai_confidence": confidence,
             }
+
+            logger.info(f"Enriched lead (ai_score={ai_score} base_score={base_score}) for {name} at {company}")
 
             return jsonify(enriched_lead), 200
         except Exception as exc:
-            print("Gemini enrichment failed:", exc)
+            logger.exception("Gemini enrichment failed, falling back to deterministic enrichment")
 
-    # Fallback deterministic enrichment when Gemini not available
-    industries = ["Technology", "Healthcare", "Finance", "E-commerce", "Education"]
-    industry_val = industry or random.choice(industries)
-    revenue_val = revenue or f"{random.randint(50, 300)}Cr"
+    # Deterministic enrichment when Gemini not available
+    # Avoid random fallbacks; use explicit 'Unknown' or best-effort enrichment
+    industry_val = industry or "Unknown"
+    revenue_val = revenue or "Unknown"
+
+    # Try optional company lookup to enrich industry/revenue if available
+    try:
+        lookup = company_lookup(company, None)
+        if lookup:
+            industry_val = lookup.get('industry', industry_val)
+            revenue_val = lookup.get('estimatedAnnualRevenue') or lookup.get('revenueRange') or revenue_val
+            logger.info(f"Company lookup provided enrichment for {company}")
+    except Exception:
+        logger.exception("Company lookup failed")
 
     base_score = compute_base_score({
         "title": title,
@@ -222,9 +274,11 @@ def enrich() -> tuple:
         "priority_score": base_score,
         "score_source": "base",
         "status": "🔥 Hot Lead" if base_score > 85 else ("High" if base_score > 75 else "Medium"),
-        "ai_insight": "Mock enrichment used",
+        "ai_insight": "Deterministic enrichment used",
         "is_hot_lead": base_score > 85,
     }
+
+    logger.info(f"Deterministic enrichment for {name} at {company} base_score={base_score}")
 
     return jsonify(enriched_lead), 200
 
