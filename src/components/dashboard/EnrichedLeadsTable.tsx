@@ -33,7 +33,7 @@ export function EnrichedLeadsTable() {
     return <Badge variant="secondary">Low</Badge>;
   };
 
-  const filteredLeads = leads.filter(lead => {
+  const filteredLeads = leads.filter((lead: ScoredLead) => {
     const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.company.toLowerCase().includes(searchTerm.toLowerCase());
     if (priorityFilter === "all") return matchesSearch;
@@ -47,15 +47,17 @@ export function EnrichedLeadsTable() {
   const exportLeadsToCSV = () => {
     if (leads.length === 0) return;
     const headers = [
-      'Name', 'Company', 'Email', 'LinkedIn', 'Industry', 'Priority Score', 'Hot Lead', 'AI Insight'
+      'Name', 'Company', 'Email', 'LinkedIn', 'Industry', 'Priority Score', 'Base Score', 'AI Score', 'Hot Lead', 'AI Insight'
     ];
-    const rows = leads.map(lead => [
+    const rows = leads.map((lead: ScoredLead) => [
       lead.name,
       lead.company,
       lead.email,
       lead.linkedin,
       lead.industry,
       lead.priorityScore,
+      lead.baseScore ?? '',
+      lead.aiScore ?? '',
       lead.isHotLead ? 'Yes' : 'No',
       lead.aiInsight?.replace(/\n/g, ' ')
     ]);
@@ -74,7 +76,10 @@ export function EnrichedLeadsTable() {
   };
 
   // Gemini message generation
-  const handleGenerateMessage = async (lead, type) => {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsLead, setDetailsLead] = useState<ScoredLead | null>(null);
+
+  const handleGenerateMessage = async (lead: ScoredLead, type: 'email' | 'linkedin') => {
     setModalOpen(true);
     setModalTitle(type === 'email' ? 'Generated Email' : 'Generated LinkedIn Message');
     setModalContent("");
@@ -92,6 +97,11 @@ export function EnrichedLeadsTable() {
       setModalContent("Error generating message.");
     }
     setLoading(false);
+  };
+
+  const openDetails = (lead: ScoredLead) => {
+    setDetailsLead(lead);
+    setDetailsOpen(true);
   };
 
   return (
@@ -202,7 +212,22 @@ export function EnrichedLeadsTable() {
                         )}
                       </TableCell>
                       <TableCell>{lead.industry}</TableCell>
-                      <TableCell>{getPriorityBadge(lead.priorityScore)}</TableCell>
+                      <TableCell>
+                        <div>
+                          {getPriorityBadge(lead.priorityScore)}
+                          <div className="text-xs text-gray-500 mt-1">
+                            {/** show base vs ai scores when available */}
+                            {/** @ts-ignore */}
+                            {lead.baseScore !== undefined && (
+                              <span>base: {lead.baseScore}</span>
+                            )}
+                            {/** @ts-ignore */}
+                            {lead.aiScore !== undefined && lead.aiScore !== null && (
+                              <span className="ml-2">ai: {lead.aiScore}</span>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         {lead.isHotLead && <Badge className="bg-orange-500 text-white">🔥 Hot</Badge>}
                       </TableCell>
@@ -219,6 +244,9 @@ export function EnrichedLeadsTable() {
                           <Button size="sm" variant="outline" onClick={() => handleGenerateMessage(lead, 'linkedin')}>
                             Generate LinkedIn
                           </Button>
+                          <Button size="sm" variant="ghost" onClick={() => openDetails(lead)}>
+                            Details
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -229,6 +257,30 @@ export function EnrichedLeadsTable() {
           </div>
         </CardContent>
       </Card>
+      {/* Details modal */}
+      {detailsOpen && detailsLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full relative">
+            <h3 className="text-lg font-semibold mb-4">Lead scoring details</h3>
+            <div className="text-sm text-gray-700 mb-4">
+              <div><strong>Name:</strong> {detailsLead.name}</div>
+              <div><strong>Company:</strong> {detailsLead.company}</div>
+              <div className="mt-2"><strong>Base score:</strong> {detailsLead.baseScore}</div>
+              <div><strong>AI score:</strong> {detailsLead.aiScore ?? '—'}</div>
+              <div><strong>Final priority:</strong> {detailsLead.priorityScore}</div>
+            </div>
+            <div className="text-sm text-gray-700">
+              <div className="mb-2"><strong>Deterministic breakdown</strong></div>
+              <div>Role: {detailsLead.baseBreakdown?.role}</div>
+              <div>Company: {detailsLead.baseBreakdown?.company}</div>
+              <div>Intent: {detailsLead.baseBreakdown?.intent}</div>
+              <div>Contact quality: {detailsLead.baseBreakdown?.contact}</div>
+              <div>Recency: {detailsLead.baseBreakdown?.recency}</div>
+            </div>
+            <Button className="mt-4 w-full" onClick={() => { setDetailsOpen(false); setDetailsLead(null); }}>Close</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

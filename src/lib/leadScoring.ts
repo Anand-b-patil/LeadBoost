@@ -18,6 +18,49 @@ export interface ScoredLead extends Lead {
   priorityScore: number;
   aiInsight: string;
   isHotLead: boolean;
+  baseScore?: number;
+  aiScore?: number | null;
+  baseBreakdown?: {
+    role: number;
+    company: number;
+    intent: number;
+    contact: number;
+    recency: number;
+  };
+}
+
+export function computeBaseScoreDetailed(lead: Lead) {
+  let role = 0;
+  let company = 0;
+  let intent = 0;
+  let contact = 0;
+  let recency = 0;
+
+  const title = (lead.name || "").toLowerCase();
+  if (/founder|ceo|cto|cfo|co-founder/.test(title)) role = 30;
+  else if (/vp|vice president|head|director/.test(title)) role = 20;
+  else if (/manager|lead/.test(title)) role = 10;
+
+  try {
+    const num = Number(String(lead.revenue).replace(/[^0-9]/g, "")) || 0;
+    if (num > 100000000) company = 25;
+    else if (num > 5000000) company = 15;
+    else company = 5;
+  } catch {
+    company = 10;
+  }
+
+  const signals = (lead.aiInsight || "").toLowerCase();
+  if (/fund|raised|series|hiring|launch|acquired/.test(signals)) intent = 25;
+  else if (/hiring|growth|expanding|pilot/.test(signals)) intent = 10;
+
+  if (lead.email && lead.linkedin) contact = 10;
+  else if (lead.email || lead.linkedin) contact = 5;
+
+  if (/recent|month|week/.test(signals)) recency = 8;
+
+  const score = Math.max(0, Math.min(100, Math.round(role + company + intent + contact + recency)));
+  return { score, breakdown: { role, company, intent, contact, recency } };
 }
 
 export async function scoreLead(lead: Lead): Promise<ScoredLead> {
@@ -50,7 +93,12 @@ Respond in this exact JSON format:
   "isHotLead": true
 }`;
 
+  let baseScore = 50;
   try {
+    // Compute deterministic base score locally (same rubric as backend)
+    const { score: computedBaseScore, breakdown } = computeBaseScoreDetailed(lead);
+    baseScore = computedBaseScore;
+
     const response = await generateFromGemini({ 
       prompt,
       temperature: 0.3 // Lower temperature for more consistent scoring
@@ -75,23 +123,34 @@ Respond in this exact JSON format:
     jsonText = jsonText.trim();
     
     const scoringData = JSON.parse(jsonText);
-    
+    const aiScore = scoringData.priorityScore || null;
+    const finalScore = aiScore !== null ? aiScore : baseScore;
+
     return {
       ...lead,
-      priorityScore: scoringData.priorityScore || 50,
+      priorityScore: finalScore,
       aiInsight: scoringData.aiInsight || 'No insight available',
-      isHotLead: scoringData.isHotLead || false
-    };
+      isHotLead: scoringData.isHotLead || false,
+      baseScore,
+      aiScore,
+      baseBreakdown: breakdown,
+    } as ScoredLead;
   } catch (error) {
     console.error('Error scoring lead:', error);
     console.error('Lead data:', lead);
-    console.error('API response:', response);
+    // @ts-ignore
+    console.error('API response:', (error as any).response);
     // Return default scoring if API fails
     return {
       ...lead,
-      priorityScore: 50,
+      priorityScore: baseScore || 50,
       aiInsight: `Scoring unavailable - ${error instanceof Error ? error.message : 'Unknown error'}`,
-      isHotLead: false
+      isHotLead: false,
+      // debug
+      // @ts-ignore
+      baseScore,
+      // @ts-ignore
+      aiScore: null,
     };
   }
 }

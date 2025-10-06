@@ -130,6 +130,44 @@ If you’re ever unsure what a button does, just hover over it or try it out—L
 
 
   ## Running the code
+  
+  ## Lead qualification criteria
+
+  LeadBoost uses a simple, auditable rubric to convert lead attributes into a priority score (0-100). The app currently uses AI enrichment to suggest a priority, but we also recommend a deterministic base score for repeatable results. The rubric below is used to explain scores and guide follow-up actions.
+
+  Scoring rubric (example):
+  - Role seniority (0-30): C-level/Founder = 30, VP/Director = 20, Manager = 10, Individual contributor = 0
+  - Company fit / size (0-25): Enterprise / ideal ICP = 25, Mid-market = 15, Small / partial fit = 5
+  - Intent signals (0-25): Recent funding, hiring, product launch = 25 for strong signals, 10 for moderate, 0 for none
+  - Contact quality (0-10): Public email + LinkedIn present = 10, partial = 5
+  - Recency / contextual fit (0-10): Recent news or explicit signals matching your product = 0–10
+
+  Total = 100. Map to categories:
+  - 80–100: High (immediate outreach)
+  - 50–79: Medium (nurture sequence / further qualification)
+  - 0–49: Low (deprioritize or add to long-term nurture)
+
+  Implementation notes:
+  - The app currently asks Gemini for a `priorityScore` and `aiInsight`. If Gemini fails or returns an invalid score, the backend will fall back to a deterministic base score using the rubric above (recommended change to implement for reproducibility).
+  - Store both `base_score` and `ai_score` where possible so reviewers can see the deterministic calculation and the AI rationale side-by-side.
+
+  ## Business scenarios & ICP examples
+
+  Example 1 — Enterprise ICP (High priority):
+  - ICP: VP/Head of IT or Product at 500+ employee SaaS companies in finance or healthcare
+  - Signals: Series B/C funding in last 12 months, open hiring for engineering or product, recent product launch
+  - Action: Immediate outbound outreach from SDR with tailored pitch — use AI-generated email referencing funding / product event
+
+  Example 2 — Mid-market ICP (Medium priority):
+  - ICP: Director-level marketing or operations at 50–500 employee companies in e-commerce
+  - Signals: Quarterly growth signals, some public hiring, company blog announcing a new initiative
+  - Action: Nurture sequence (2–3 touchpoints), send educational content first, then tailored product pitch
+
+  Example 3 — Low-fit (Low priority):
+  - ICP: Individual contributors or companies outside target industries
+  - Signals: No clear intent, missing contact info
+  - Action: Add to long-term nurture list; prioritize data enrichment before outreach
+
 
   Run `npm i` to install the dependencies.
 
