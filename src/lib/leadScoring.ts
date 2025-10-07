@@ -129,7 +129,24 @@ Respond in this exact JSON format:
     // Clean up any extra whitespace
     jsonText = jsonText.trim();
     
-    const scoringData = JSON.parse(jsonText);
+    // Try parsing JSON directly, otherwise attempt to extract the first JSON object/array
+    let scoringData: any = {};
+    try {
+      scoringData = JSON.parse(jsonText);
+    } catch (err) {
+      try {
+        // extract JSON object inside text
+        const objMatch = jsonText.match(/(\{[\s\S]*?\})/);
+        if (objMatch) scoringData = JSON.parse(objMatch[1]);
+        else {
+          const arrMatch = jsonText.match(/(\[[\s\S]*?\])/);
+          if (arrMatch) scoringData = JSON.parse(arrMatch[1]);
+        }
+      } catch (err2) {
+        console.warn('Failed to parse AI JSON response', err2, jsonText.slice(0, 300));
+        scoringData = {};
+      }
+    }
     const aiScore = scoringData.priorityScore || null;
     const finalScore = aiScore !== null ? aiScore : baseScore;
 
