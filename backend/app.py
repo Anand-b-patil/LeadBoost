@@ -44,17 +44,6 @@ def _safe_parse_json_text(json_text: str) -> dict:
     try:
         return json.loads(text)
     except Exception:
-        # Fallback: try to extract the first JSON object or array from the text
-        try:
-            import re
-            obj_match = re.search(r"(\{[\s\S]*?\})", text)
-            if obj_match:
-                return json.loads(obj_match.group(1))
-            arr_match = re.search(r"(\[[\s\S]*?\])", text)
-            if arr_match:
-                return json.loads(arr_match.group(1))
-        except Exception:
-            logger.debug("_safe_parse_json_text fallback parsing failed", exc_info=True)
         return {}
 
 

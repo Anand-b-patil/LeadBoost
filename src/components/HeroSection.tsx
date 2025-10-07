@@ -37,9 +37,7 @@ export function HeroSection({ onGetStarted }: HeroSectionProps) {
               <Button onClick={onGetStarted} className="bg-[#6C63FF] hover:bg-[#5B54E6] text-white px-6 py-3">
                 Try LeadBoost Free
               </Button>
-              <Button variant="outline" className="border-[#4F46E5] text-[#4F46E5] hover:bg-[#4F46E5] hover:text-white px-6 py-3">
-                Watch Demo
-              </Button>
+
             </div>
           </div>
         </div>

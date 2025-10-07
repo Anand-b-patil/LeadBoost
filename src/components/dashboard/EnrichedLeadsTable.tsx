@@ -171,9 +171,11 @@ export function EnrichedLeadsTable() {
             </Select>
           </div>
 
-          {/* Table */}
+          {/* Table (desktop) and mobile card list */}
           <div className="border rounded-lg overflow-hidden">
-            <Table>
+            {/* Desktop table - hidden on small screens */}
+            <div className="hidden md:block">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
@@ -255,7 +257,41 @@ export function EnrichedLeadsTable() {
                   ))
                 )}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
+
+            {/* Mobile card list - visible on small screens */}
+            <div className="block md:hidden">
+              {filteredLeads.length === 0 ? (
+                <div className="p-6 text-center text-gray-500">{leads.length === 0 ? "No leads found. Go to 'Generate Leads' to input and score leads." : "No leads match your current filters."}</div>
+              ) : (
+                <div className="space-y-4 p-4">
+                  {filteredLeads.map((lead) => (
+                    <div key={lead.id} className="bg-white border rounded-lg shadow-sm p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-medium">{lead.name}</div>
+                          <div className="text-sm text-gray-500">{lead.company} • {lead.industry}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xl font-bold">{lead.priorityScore}</div>
+                          <div className="text-xs text-gray-500">Score</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 text-sm text-gray-600">{lead.aiInsight}</div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Button size="sm" variant="outline" className="w-full" onClick={() => handleGenerateMessage(lead, 'email')}>Generate Email</Button>
+                        <Button size="sm" variant="outline" className="w-full" onClick={() => handleGenerateMessage(lead, 'linkedin')}>Generate LinkedIn</Button>
+                        <button className="text-sm text-[#4F46E5] hover:underline text-left" onClick={() => openDetails(lead)}>Details</button>
+                        <div className="text-right">{getPriorityBadge(lead.priorityScore)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -293,7 +293,7 @@ export function ChatbotLeadInput() {
             )}
           </div>
 
-          <div className="flex space-x-4">
+          <div className="flex flex-col md:flex-row md:space-x-4 space-y-3 md:space-y-0">
               {currentStep < steps.length - 1 ? (
               <Button 
                 onClick={handleNext}
@@ -321,7 +321,7 @@ export function ChatbotLeadInput() {
                 onClick={handleScoreLeads}
                 onKeyDown={handleKeyPressOnPrimary}
                 disabled={isScoring || scoringComplete}
-                className="h-12 bg-[#4F46E5] hover:bg-[#4338CA] text-white px-8 disabled:opacity-50"
+                className="h-12 bg-[#4F46E5] hover:bg-[#4338CA] text-white px-8 disabled:opacity-50 w-full md:w-auto"
                 aria-describedby="finish-score-desc"
                 title="Finish adding leads and run the AI scoring. This will send leads to the scoring engine and display results here."
               >
